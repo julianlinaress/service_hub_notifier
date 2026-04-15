@@ -16,10 +16,11 @@ const (
 
 // Config stores runtime configuration for the notifier service.
 type Config struct {
-	Port               string
-	DeliveryTimeout    time.Duration
-	ShutdownTimeout    time.Duration
-	TelegramAPIBaseURL string
+	Port                 string
+	DeliveryTimeout      time.Duration
+	ShutdownTimeout      time.Duration
+	TelegramAPIBaseURL   string
+	InternalServiceToken string
 }
 
 // EnvGetter reads an environment variable value by key.
@@ -32,10 +33,11 @@ func LoadFromEnv(getEnv EnvGetter) Config {
 	}
 
 	return Config{
-		Port:               stringEnvOrDefault(getEnv, "PORT", defaultPort),
-		DeliveryTimeout:    durationFromEnvMS(getEnv, "DELIVERY_TIMEOUT_MS", defaultDeliveryTimeoutMS),
-		ShutdownTimeout:    durationFromEnvMS(getEnv, "SHUTDOWN_TIMEOUT_MS", defaultShutdownTimeoutMS),
-		TelegramAPIBaseURL: stringEnvOrDefault(getEnv, "TELEGRAM_API_BASE_URL", defaultTelegramAPIBase),
+		Port:                 stringEnvOrDefault(getEnv, "PORT", defaultPort),
+		DeliveryTimeout:      durationFromEnvMS(getEnv, "DELIVERY_TIMEOUT_MS", defaultDeliveryTimeoutMS),
+		ShutdownTimeout:      durationFromEnvMS(getEnv, "SHUTDOWN_TIMEOUT_MS", defaultShutdownTimeoutMS),
+		TelegramAPIBaseURL:   stringEnvOrDefault(getEnv, "TELEGRAM_API_BASE_URL", defaultTelegramAPIBase),
+		InternalServiceToken: strings.TrimSpace(getEnv("INTERNAL_SERVICE_TOKEN")),
 	}
 }
 

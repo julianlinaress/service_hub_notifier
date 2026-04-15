@@ -9,6 +9,7 @@ services:
       PORT: "8081"
       DELIVERY_TIMEOUT_MS: "2000"
       TELEGRAM_API_BASE_URL: "http://telegram_mock:80"
+      INTERNAL_SERVICE_TOKEN: "integration-secret"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/health"]
       interval: 5s
@@ -30,6 +31,8 @@ services:
     volumes:
       - ./test/container/compose_integration.sh:/tests/run.sh:ro
     command: ["sh", "/tests/run.sh"]
+    environment:
+      INTERNAL_SERVICE_TOKEN: "integration-secret"
     networks:
       - service_hub_test_net
 

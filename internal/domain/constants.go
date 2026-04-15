@@ -16,6 +16,7 @@ const (
 const (
 	ErrInvalidRequest      = "invalid_request"
 	ErrInvalidJSON         = "invalid_json"
+	ErrUnauthorized        = "unauthorized"
 	ErrInvalidDestination  = "invalid_destination"
 	ErrPayloadTooLarge     = "payload_too_large"
 	ErrUnsupportedProvider = "unsupported_provider"

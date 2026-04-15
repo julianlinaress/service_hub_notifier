@@ -12,6 +12,7 @@ import (
 	"github.com/julianlinaress/service_hub_notifier/internal/adapters/httpclient"
 	"github.com/julianlinaress/service_hub_notifier/internal/adapters/logger"
 	"github.com/julianlinaress/service_hub_notifier/internal/adapters/providers"
+	"github.com/julianlinaress/service_hub_notifier/internal/app"
 	"github.com/julianlinaress/service_hub_notifier/internal/config"
 	"github.com/julianlinaress/service_hub_notifier/internal/http/handlers"
 	"github.com/julianlinaress/service_hub_notifier/internal/http/router"
@@ -32,17 +33,18 @@ func main() {
 func run(getEnv config.EnvGetter, shutdown <-chan os.Signal) error {
 	runtimeConfig := config.LoadFromEnv(getEnv)
 	log := logger.New()
+	readiness := app.NewReadiness(runtimeConfig)
 
 	httpClient := httpclient.New(runtimeConfig.DeliveryTimeout)
 	telegram := providers.NewTelegramAdapter(httpClient, providers.WithTelegramAPIBaseURL(runtimeConfig.TelegramAPIBaseURL))
 	slack := providers.NewSlackAdapter(httpClient)
 
 	deliveryService := service.NewDeliveryService(telegram, slack)
-	deliveriesHandler := handlers.NewDeliveriesHandler(deliveryService, log)
+	deliveriesHandler := handlers.NewDeliveriesHandler(deliveryService, log, runtimeConfig.InternalServiceToken)
 
 	server := &http.Server{
 		Addr:              ":" + runtimeConfig.Port,
-		Handler:           router.New(deliveriesHandler),
+		Handler:           router.New(deliveriesHandler, readiness),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

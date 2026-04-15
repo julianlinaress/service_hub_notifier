@@ -13,33 +13,37 @@ func TestBuildServerConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		env      map[string]string
-		wantPort string
-		wantTO   time.Duration
-		wantSDTO time.Duration
-		wantTG   string
+		name      string
+		env       map[string]string
+		wantPort  string
+		wantTO    time.Duration
+		wantSDTO  time.Duration
+		wantTG    string
+		wantToken string
 	}{
 		{
-			name:     "defaults",
-			env:      map[string]string{},
-			wantPort: "8081",
-			wantTO:   5 * time.Second,
-			wantSDTO: 10 * time.Second,
-			wantTG:   "https://api.telegram.org",
+			name:      "defaults",
+			env:       map[string]string{},
+			wantPort:  "8081",
+			wantTO:    5 * time.Second,
+			wantSDTO:  10 * time.Second,
+			wantTG:    "https://api.telegram.org",
+			wantToken: "",
 		},
 		{
 			name: "configured",
 			env: map[string]string{
-				"PORT":                  "9000",
-				"DELIVERY_TIMEOUT_MS":   "3000",
-				"SHUTDOWN_TIMEOUT_MS":   "4000",
-				"TELEGRAM_API_BASE_URL": "https://telegram.mock",
+				"PORT":                   "9000",
+				"DELIVERY_TIMEOUT_MS":    "3000",
+				"SHUTDOWN_TIMEOUT_MS":    "4000",
+				"TELEGRAM_API_BASE_URL":  "https://telegram.mock",
+				"INTERNAL_SERVICE_TOKEN": "server-token",
 			},
-			wantPort: "9000",
-			wantTO:   3 * time.Second,
-			wantSDTO: 4 * time.Second,
-			wantTG:   "https://telegram.mock",
+			wantPort:  "9000",
+			wantTO:    3 * time.Second,
+			wantSDTO:  4 * time.Second,
+			wantTG:    "https://telegram.mock",
+			wantToken: "server-token",
 		},
 	}
 
@@ -70,6 +74,10 @@ func TestBuildServerConfig(t *testing.T) {
 
 			if cfg.TelegramAPIBaseURL != tc.wantTG {
 				t.Fatalf("telegram api base = %q, want %q", cfg.TelegramAPIBaseURL, tc.wantTG)
+			}
+
+			if cfg.InternalServiceToken != tc.wantToken {
+				t.Fatalf("internal service token = %q, want %q", cfg.InternalServiceToken, tc.wantToken)
 			}
 		})
 	}

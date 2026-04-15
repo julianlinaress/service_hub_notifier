@@ -31,7 +31,7 @@ func TestHandleCreateDelivery(t *testing.T) {
 		slack := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
 		deliveryService := service.NewDeliveryService(telegram, slack)
 
-		return NewDeliveriesHandler(deliveryService, logger.New()), telegram
+		return NewDeliveriesHandler(deliveryService, logger.New(), ""), telegram
 	}
 
 	validRequest := map[string]any{
@@ -217,7 +217,7 @@ func TestHandleCreateDeliveryMethodNotAllowed(t *testing.T) {
 
 	telegram := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
 	slack := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
-	handler := NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New())
+	handler := NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New(), "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/deliveries", nil)
 	rec := httptest.NewRecorder()
@@ -225,6 +225,57 @@ func TestHandleCreateDeliveryMethodNotAllowed(t *testing.T) {
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestHandleCreateDeliveryUnauthorizedWhenTokenConfigured(t *testing.T) {
+	t.Parallel()
+
+	telegram := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
+	slack := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
+	handler := NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New(), "internal-secret")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/deliveries", strings.NewReader(mustJSON(t, map[string]any{
+		"delivery_attempt_key": "event-id:telegram",
+		"provider":             "telegram",
+		"destination": map[string]any{
+			"token":    "token",
+			"chat_ref": "@alerts",
+		},
+		"notification": map[string]any{
+			"event_name":    "health.alert",
+			"check_type":    "health",
+			"severity":      "alert",
+			"message":       "failed",
+			"service_id":    1,
+			"deployment_id": 2,
+			"metadata":      map[string]any{},
+		},
+		"event": map[string]any{
+			"id":   "event-id",
+			"name": "health.alert",
+			"tags": map[string]any{},
+		},
+	})))
+	rec := httptest.NewRecorder()
+
+	handler.HandleCreateDelivery(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+
+	if telegram.called {
+		t.Fatalf("expected delivery service not to be called on unauthorized request")
+	}
+
+	response := domain.DeliveryResponse{}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if response.ErrorCode != domain.ErrUnauthorized {
+		t.Fatalf("error_code = %q, want %q", response.ErrorCode, domain.ErrUnauthorized)
 	}
 }
 

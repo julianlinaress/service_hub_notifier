@@ -133,16 +133,69 @@ func TestPOSTDeliveriesSlackWithMockEndpoint(t *testing.T) {
 	}
 }
 
+func TestPOSTDeliveriesRequiresInternalToken(t *testing.T) {
+	t.Parallel()
+
+	telegramMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+	}))
+	defer telegramMock.Close()
+
+	notifier := newNotifierServerWithToken(telegramMock.URL, 2*time.Second, "integration-secret")
+	defer notifier.Close()
+
+	statusCode, body := postDeliveryWithHeaders(t, notifier.URL+"/api/v1/deliveries", telegramRequest(), map[string]string{})
+	if statusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", statusCode, http.StatusUnauthorized)
+	}
+
+	if body.ErrorCode != domain.ErrUnauthorized {
+		t.Fatalf("error_code = %q, want %q", body.ErrorCode, domain.ErrUnauthorized)
+	}
+
+	statusCode, body = postDeliveryWithHeaders(t, notifier.URL+"/api/v1/deliveries", telegramRequest(), map[string]string{
+		"Authorization": "Bearer integration-secret",
+		"X-Request-Id":  "integration-req",
+		"X-Attempt-Id":  "integration-attempt",
+	})
+	if statusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", statusCode, http.StatusOK)
+	}
+
+	if body.Status != domain.StatusDelivered {
+		t.Fatalf("response status = %q, want %q", body.Status, domain.StatusDelivered)
+	}
+
+	metricsResp, err := http.Get(notifier.URL + "/metrics")
+	if err != nil {
+		t.Fatalf("get /metrics: %v", err)
+	}
+	defer metricsResp.Body.Close()
+
+	if metricsResp.StatusCode != http.StatusOK {
+		t.Fatalf("metrics status = %d, want %d", metricsResp.StatusCode, http.StatusOK)
+	}
+}
+
 func newNotifierServer(telegramBaseURL string, timeout time.Duration) *httptest.Server {
+	return newNotifierServerWithToken(telegramBaseURL, timeout, "")
+}
+
+func newNotifierServerWithToken(telegramBaseURL string, timeout time.Duration, token string) *httptest.Server {
 	httpClient := httpclient.New(timeout)
 	telegram := providers.NewTelegramAdapter(httpClient, providers.WithTelegramAPIBaseURL(telegramBaseURL))
 	slack := providers.NewSlackAdapter(httpClient)
-	deliveriesHandler := handlers.NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New())
+	deliveriesHandler := handlers.NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New(), token)
 
-	return httptest.NewServer(router.New(deliveriesHandler))
+	return httptest.NewServer(router.New(deliveriesHandler, readinessStub{ready: true}))
 }
 
 func postDelivery(t *testing.T, url string, payload map[string]any) (int, domain.DeliveryResponse) {
+	return postDeliveryWithHeaders(t, url, payload, map[string]string{})
+}
+
+func postDeliveryWithHeaders(t *testing.T, url string, payload map[string]any, headers map[string]string) (int, domain.DeliveryResponse) {
 	t.Helper()
 
 	rawPayload, err := json.Marshal(payload)
@@ -155,6 +208,9 @@ func postDelivery(t *testing.T, url string, payload map[string]any) (int, domain
 		t.Fatalf("build request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -168,6 +224,14 @@ func postDelivery(t *testing.T, url string, payload map[string]any) (int, domain
 	}
 
 	return resp.StatusCode, parsed
+}
+
+type readinessStub struct {
+	ready bool
+}
+
+func (r readinessStub) Ready() (bool, map[string]any) {
+	return r.ready, map[string]any{"stub": r.ready}
 }
 
 func telegramRequest() map[string]any {
