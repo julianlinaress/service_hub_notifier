@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+.agents
+.claude
+
+bin
+dist
+coverage.out
+
+docker-compose*.yml
+README.md
+skills-lock.json
+test
