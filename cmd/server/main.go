@@ -34,20 +34,31 @@ func main() {
 		Addr:              ":" + port,
 		Handler:           router.New(deliveriesHandler),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	log.Info("service_started", map[string]any{"service": "service_hub_notifier", "port": port})
+	serverErrCh := make(chan error, 1)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("server_failed", map[string]any{"error": err.Error()})
-			os.Exit(1)
+			serverErrCh <- err
 		}
 	}()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
-	<-shutdown
+	defer signal.Stop(shutdown)
+
+	select {
+	case sig := <-shutdown:
+		log.Info("shutdown_signal_received", map[string]any{"signal": sig.String()})
+	case err := <-serverErrCh:
+		log.Error("server_failed", map[string]any{"error": err.Error()})
+		os.Exit(1)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
