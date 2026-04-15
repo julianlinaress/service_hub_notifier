@@ -14,6 +14,7 @@ func TestLoadFromEnv(t *testing.T) {
 		wantPort string
 		wantTO   time.Duration
 		wantSDTO time.Duration
+		wantTG   string
 	}{
 		{
 			name:     "uses defaults when env missing",
@@ -21,17 +22,20 @@ func TestLoadFromEnv(t *testing.T) {
 			wantPort: "8081",
 			wantTO:   5 * time.Second,
 			wantSDTO: 10 * time.Second,
+			wantTG:   "https://api.telegram.org",
 		},
 		{
 			name: "uses configured values",
 			env: map[string]string{
-				"PORT":                "9090",
-				"DELIVERY_TIMEOUT_MS": "1500",
-				"SHUTDOWN_TIMEOUT_MS": "2500",
+				"PORT":                  "9090",
+				"DELIVERY_TIMEOUT_MS":   "1500",
+				"SHUTDOWN_TIMEOUT_MS":   "2500",
+				"TELEGRAM_API_BASE_URL": "https://telegram.mock",
 			},
 			wantPort: "9090",
 			wantTO:   1500 * time.Millisecond,
 			wantSDTO: 2500 * time.Millisecond,
+			wantTG:   "https://telegram.mock",
 		},
 		{
 			name: "falls back on invalid numbers",
@@ -42,6 +46,7 @@ func TestLoadFromEnv(t *testing.T) {
 			wantPort: "8081",
 			wantTO:   5 * time.Second,
 			wantSDTO: 10 * time.Second,
+			wantTG:   "https://api.telegram.org",
 		},
 		{
 			name: "trims port whitespace",
@@ -51,6 +56,7 @@ func TestLoadFromEnv(t *testing.T) {
 			wantPort: "7070",
 			wantTO:   5 * time.Second,
 			wantSDTO: 10 * time.Second,
+			wantTG:   "https://api.telegram.org",
 		},
 	}
 
@@ -77,6 +83,10 @@ func TestLoadFromEnv(t *testing.T) {
 
 			if cfg.ShutdownTimeout != tc.wantSDTO {
 				t.Fatalf("shutdown timeout = %s, want %s", cfg.ShutdownTimeout, tc.wantSDTO)
+			}
+
+			if cfg.TelegramAPIBaseURL != tc.wantTG {
+				t.Fatalf("telegram api base = %q, want %q", cfg.TelegramAPIBaseURL, tc.wantTG)
 			}
 		})
 	}

@@ -11,13 +11,15 @@ const (
 	defaultPort              = "8081"
 	defaultDeliveryTimeoutMS = 5000
 	defaultShutdownTimeoutMS = 10000
+	defaultTelegramAPIBase   = "https://api.telegram.org"
 )
 
 // Config stores runtime configuration for the notifier service.
 type Config struct {
-	Port            string
-	DeliveryTimeout time.Duration
-	ShutdownTimeout time.Duration
+	Port               string
+	DeliveryTimeout    time.Duration
+	ShutdownTimeout    time.Duration
+	TelegramAPIBaseURL string
 }
 
 // EnvGetter reads an environment variable value by key.
@@ -30,9 +32,10 @@ func LoadFromEnv(getEnv EnvGetter) Config {
 	}
 
 	return Config{
-		Port:            stringEnvOrDefault(getEnv, "PORT", defaultPort),
-		DeliveryTimeout: durationFromEnvMS(getEnv, "DELIVERY_TIMEOUT_MS", defaultDeliveryTimeoutMS),
-		ShutdownTimeout: durationFromEnvMS(getEnv, "SHUTDOWN_TIMEOUT_MS", defaultShutdownTimeoutMS),
+		Port:               stringEnvOrDefault(getEnv, "PORT", defaultPort),
+		DeliveryTimeout:    durationFromEnvMS(getEnv, "DELIVERY_TIMEOUT_MS", defaultDeliveryTimeoutMS),
+		ShutdownTimeout:    durationFromEnvMS(getEnv, "SHUTDOWN_TIMEOUT_MS", defaultShutdownTimeoutMS),
+		TelegramAPIBaseURL: stringEnvOrDefault(getEnv, "TELEGRAM_API_BASE_URL", defaultTelegramAPIBase),
 	}
 }
 

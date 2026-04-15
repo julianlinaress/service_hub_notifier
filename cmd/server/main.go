@@ -34,7 +34,7 @@ func run(getEnv config.EnvGetter, shutdown <-chan os.Signal) error {
 	log := logger.New()
 
 	httpClient := httpclient.New(runtimeConfig.DeliveryTimeout)
-	telegram := providers.NewTelegramAdapter(httpClient)
+	telegram := providers.NewTelegramAdapter(httpClient, providers.WithTelegramAPIBaseURL(runtimeConfig.TelegramAPIBaseURL))
 	slack := providers.NewSlackAdapter(httpClient)
 
 	deliveryService := service.NewDeliveryService(telegram, slack)

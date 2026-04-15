@@ -1,0 +1,48 @@
+services:
+  notifier:
+    image: golang:1.22.7-alpine
+    working_dir: /workspace
+    command: ["sh", "-c", "go run ./cmd/server"]
+    volumes:
+      - .:/workspace
+    environment:
+      PORT: "8081"
+      DELIVERY_TIMEOUT_MS: "2000"
+      TELEGRAM_API_BASE_URL: "http://telegram_mock:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+    networks:
+      - service_hub_test_net
+
+  phoenix_mock:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      notifier:
+        condition: service_healthy
+      telegram_mock:
+        condition: service_started
+      slack_mock:
+        condition: service_started
+    volumes:
+      - ./test/container/compose_integration.sh:/tests/run.sh:ro
+    command: ["sh", "/tests/run.sh"]
+    networks:
+      - service_hub_test_net
+
+  telegram_mock:
+    image: ealen/echo-server:0.9.2
+    networks:
+      - service_hub_test_net
+
+  slack_mock:
+    image: ealen/echo-server:0.9.2
+    networks:
+      - service_hub_test_net
+
+networks:
+  service_hub_test_net:
+    driver: bridge

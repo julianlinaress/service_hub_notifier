@@ -18,6 +18,7 @@ func TestBuildServerConfig(t *testing.T) {
 		wantPort string
 		wantTO   time.Duration
 		wantSDTO time.Duration
+		wantTG   string
 	}{
 		{
 			name:     "defaults",
@@ -25,17 +26,20 @@ func TestBuildServerConfig(t *testing.T) {
 			wantPort: "8081",
 			wantTO:   5 * time.Second,
 			wantSDTO: 10 * time.Second,
+			wantTG:   "https://api.telegram.org",
 		},
 		{
 			name: "configured",
 			env: map[string]string{
-				"PORT":                "9000",
-				"DELIVERY_TIMEOUT_MS": "3000",
-				"SHUTDOWN_TIMEOUT_MS": "4000",
+				"PORT":                  "9000",
+				"DELIVERY_TIMEOUT_MS":   "3000",
+				"SHUTDOWN_TIMEOUT_MS":   "4000",
+				"TELEGRAM_API_BASE_URL": "https://telegram.mock",
 			},
 			wantPort: "9000",
 			wantTO:   3 * time.Second,
 			wantSDTO: 4 * time.Second,
+			wantTG:   "https://telegram.mock",
 		},
 	}
 
@@ -62,6 +66,10 @@ func TestBuildServerConfig(t *testing.T) {
 
 			if cfg.ShutdownTimeout != tc.wantSDTO {
 				t.Fatalf("shutdown timeout = %s, want %s", cfg.ShutdownTimeout, tc.wantSDTO)
+			}
+
+			if cfg.TelegramAPIBaseURL != tc.wantTG {
+				t.Fatalf("telegram api base = %q, want %q", cfg.TelegramAPIBaseURL, tc.wantTG)
 			}
 		})
 	}
