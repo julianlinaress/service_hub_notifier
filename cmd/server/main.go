@@ -20,6 +20,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(runHealthcheck(os.Getenv))
+	}
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(shutdown)
@@ -77,6 +81,36 @@ func run(getEnv config.EnvGetter, shutdown <-chan os.Signal) error {
 	}
 
 	log.Info("service_stopped", map[string]any{"service": "service_hub_notifier"})
+
+	return nil
+}
+
+func runHealthcheck(getEnv config.EnvGetter) int {
+	runtimeConfig := config.LoadFromEnv(getEnv)
+	url := fmt.Sprintf("http://127.0.0.1:%s/health", runtimeConfig.Port)
+
+	if err := checkHealthURL(url, &http.Client{Timeout: 2 * time.Second}); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return 1
+	}
+
+	return 0
+}
+
+func checkHealthURL(url string, client *http.Client) error {
+	if client == nil {
+		client = &http.Client{Timeout: 2 * time.Second}
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("health request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health status %d", resp.StatusCode)
+	}
 
 	return nil
 }

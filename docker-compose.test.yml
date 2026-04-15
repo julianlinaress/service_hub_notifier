@@ -1,17 +1,15 @@
 services:
   notifier:
-    image: golang:1.22.7-alpine
-    working_dir: /workspace
-    command: ["sh", "-c", "go run ./cmd/server"]
-    volumes:
-      - .:/workspace
+    build:
+      context: .
+    image: service-hub-notifier:test
     environment:
       PORT: "8081"
       DELIVERY_TIMEOUT_MS: "2000"
       TELEGRAM_API_BASE_URL: "http://telegram_mock:80"
       INTERNAL_SERVICE_TOKEN: "integration-secret"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/health"]
+      test: ["CMD", "/app/service_hub_notifier", "healthcheck"]
       interval: 5s
       timeout: 3s
       retries: 10

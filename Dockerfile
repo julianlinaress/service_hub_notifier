@@ -20,6 +20,7 @@ COPY --from=builder /out/service_hub_notifier /app/service_hub_notifier
 
 EXPOSE 8081
 STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["/app/service_hub_notifier", "healthcheck"]
 USER nonroot:nonroot
 
 ENTRYPOINT ["/app/service_hub_notifier"]

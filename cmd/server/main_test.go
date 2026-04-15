@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"syscall"
 	"testing"
@@ -104,4 +106,34 @@ func TestRunReturnsOnShutdownSignal(t *testing.T) {
 	}, shutdown); err != nil {
 		t.Fatalf("run() error = %v, want nil", err)
 	}
+}
+
+func TestCheckHealthURL(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns nil on 200 response", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		if err := checkHealthURL(server.URL, server.Client()); err != nil {
+			t.Fatalf("checkHealthURL() error = %v, want nil", err)
+		}
+	})
+
+	t.Run("returns error when status is non-200", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer server.Close()
+
+		if err := checkHealthURL(server.URL, server.Client()); err == nil {
+			t.Fatalf("checkHealthURL() error = nil, want non-nil")
+		}
+	})
 }
