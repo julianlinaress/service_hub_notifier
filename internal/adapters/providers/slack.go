@@ -13,13 +13,19 @@ import (
 )
 
 type SlackAdapter struct {
-	httpClient *http.Client
+	httpClient HTTPClient
 }
 
-func NewSlackAdapter(httpClient *http.Client) *SlackAdapter {
+// NewSlackAdapter creates a Slack transport adapter.
+func NewSlackAdapter(httpClient HTTPClient) *SlackAdapter {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
 	return &SlackAdapter{httpClient: httpClient}
 }
 
+// Deliver sends a formatted notification to a Slack webhook endpoint.
 func (a *SlackAdapter) Deliver(ctx context.Context, req domain.DeliveryRequest) domain.DeliveryResponse {
 	webhookURL, _ := req.Destination["webhook_url"].(string)
 
@@ -30,19 +36,19 @@ func (a *SlackAdapter) Deliver(ctx context.Context, req domain.DeliveryRequest) 
 	payload := formatSlackMessage(req)
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return domain.FailureResponse(false, "encoding_error", err.Error(), "", nil)
+		return domain.FailureResponse(false, domain.ErrEncoding, err.Error(), "", nil)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
 	if err != nil {
-		return domain.FailureResponse(false, "request_build_failed", err.Error(), "", nil)
+		return domain.FailureResponse(false, domain.ErrRequestBuildFailed, err.Error(), "", nil)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return domain.FailureResponse(true, "provider_request_failed", err.Error(), "", nil)
+		return domain.FailureResponse(true, domain.ErrProviderRequest, err.Error(), "", nil)
 	}
 	defer resp.Body.Close()
 
@@ -54,7 +60,7 @@ func (a *SlackAdapter) Deliver(ctx context.Context, req domain.DeliveryRequest) 
 	}
 
 	retryable := resp.StatusCode == 429 || resp.StatusCode >= 500
-	return domain.FailureResponse(retryable, "slack_send_failed", "slack webhook returned non-success status", code, providerBody)
+	return domain.FailureResponse(retryable, domain.ErrSlackSendFailed, "slack webhook returned non-success status", code, providerBody)
 }
 
 func formatSlackMessage(req domain.DeliveryRequest) map[string]any {

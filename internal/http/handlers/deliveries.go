@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/julianlinaress/service_hub_notifier/internal/adapters/logger"
 	"github.com/julianlinaress/service_hub_notifier/internal/domain"
 )
 
@@ -15,17 +14,34 @@ const maxDeliveryRequestBodyBytes = 1 << 20
 
 type DeliveriesHandler struct {
 	service deliveryUseCase
-	logger  *logger.Logger
+	logger  eventLogger
 }
+
+type noopLogger struct{}
+
+func (noopLogger) Info(string, map[string]any) {}
+
+func (noopLogger) Error(string, map[string]any) {}
 
 type deliveryUseCase interface {
 	Deliver(ctx context.Context, req domain.DeliveryRequest) domain.DeliveryResponse
 }
 
-func NewDeliveriesHandler(service deliveryUseCase, logger *logger.Logger) *DeliveriesHandler {
+type eventLogger interface {
+	Info(message string, fields map[string]any)
+	Error(message string, fields map[string]any)
+}
+
+// NewDeliveriesHandler builds the HTTP handler for delivery requests.
+func NewDeliveriesHandler(service deliveryUseCase, logger eventLogger) *DeliveriesHandler {
+	if logger == nil {
+		logger = noopLogger{}
+	}
+
 	return &DeliveriesHandler{service: service, logger: logger}
 }
 
+// HandleCreateDelivery validates and processes a delivery request.
 func (h *DeliveriesHandler) HandleCreateDelivery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)

@@ -1,5 +1,6 @@
 package domain
 
+// DeliveryRequest is the normalized payload accepted by the delivery endpoint.
 type DeliveryRequest struct {
 	DeliveryAttemptKey string            `json:"delivery_attempt_key"`
 	Provider           string            `json:"provider"`
@@ -8,6 +9,7 @@ type DeliveryRequest struct {
 	Event              EventInput        `json:"event"`
 }
 
+// NotificationInput carries notification details used to render provider messages.
 type NotificationInput struct {
 	EventName    string         `json:"event_name"`
 	CheckType    string         `json:"check_type"`
@@ -18,12 +20,14 @@ type NotificationInput struct {
 	Metadata     map[string]any `json:"metadata"`
 }
 
+// EventInput contains metadata about the originating event.
 type EventInput struct {
 	ID   string         `json:"id"`
 	Name string         `json:"name"`
 	Tags map[string]any `json:"tags"`
 }
 
+// DeliveryResponse is the normalized result returned by provider adapters.
 type DeliveryResponse struct {
 	Status               string         `json:"status"`
 	ProviderMessageID    string         `json:"provider_message_id,omitempty"`
@@ -34,6 +38,7 @@ type DeliveryResponse struct {
 	ErrorMessage         string         `json:"error_message,omitempty"`
 }
 
+// SuccessResponse builds a successful delivery response payload.
 func SuccessResponse(messageID string, responseCode string, providerResponse map[string]any) DeliveryResponse {
 	if providerResponse == nil {
 		providerResponse = map[string]any{}
@@ -47,6 +52,7 @@ func SuccessResponse(messageID string, responseCode string, providerResponse map
 	}
 }
 
+// FailureResponse builds a failed delivery response payload.
 func FailureResponse(retryable bool, errorCode string, errorMessage string, responseCode string, providerResponse map[string]any) DeliveryResponse {
 	if providerResponse == nil {
 		providerResponse = map[string]any{}

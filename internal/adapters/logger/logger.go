@@ -8,18 +8,22 @@ import (
 	"time"
 )
 
+// Logger emits structured JSON log entries.
 type Logger struct {
 	base *log.Logger
 }
 
+// New creates a JSON logger that writes to stdout.
 func New() *Logger {
 	return &Logger{base: log.New(os.Stdout, "", 0)}
 }
 
+// Info emits an info-level structured log entry.
 func (l *Logger) Info(message string, fields map[string]any) {
 	l.log("info", message, fields)
 }
 
+// Error emits an error-level structured log entry.
 func (l *Logger) Error(message string, fields map[string]any) {
 	l.log("error", message, fields)
 }

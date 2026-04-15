@@ -19,4 +19,9 @@ const (
 	ErrInvalidDestination  = "invalid_destination"
 	ErrPayloadTooLarge     = "payload_too_large"
 	ErrUnsupportedProvider = "unsupported_provider"
+	ErrEncoding            = "encoding_error"
+	ErrRequestBuildFailed  = "request_build_failed"
+	ErrProviderRequest     = "provider_request_failed"
+	ErrSlackSendFailed     = "slack_send_failed"
+	ErrTelegramSendFailed  = "telegram_send_failed"
 )

@@ -90,22 +90,92 @@ func TestHandleCreateDelivery(t *testing.T) {
 				"unknown":              "field",
 			}),
 			expectedStatus: http.StatusBadRequest,
-			expectedCode:   "invalid_json",
+			expectedCode:   domain.ErrInvalidJSON,
 			expectCalled:   false,
 		},
 		{
 			name:           "multiple json values rejected",
 			body:           mustJSON(t, validRequest) + mustJSON(t, validRequest),
 			expectedStatus: http.StatusBadRequest,
-			expectedCode:   "invalid_json",
+			expectedCode:   domain.ErrInvalidJSON,
 			expectCalled:   false,
 		},
 		{
 			name:           "payload too large",
 			body:           mustLargePayload(t),
 			expectedStatus: http.StatusRequestEntityTooLarge,
-			expectedCode:   "payload_too_large",
+			expectedCode:   domain.ErrPayloadTooLarge,
 			expectCalled:   false,
+		},
+		{
+			name: "service invalid request maps bad request",
+			body: mustJSON(t, validRequest),
+			serviceResp: domain.FailureResponse(
+				false,
+				domain.ErrInvalidRequest,
+				"missing field",
+				"",
+				nil,
+			),
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   domain.ErrInvalidRequest,
+			expectCalled:   true,
+		},
+		{
+			name: "service unsupported provider maps bad request",
+			body: mustJSON(t, validRequest),
+			serviceResp: domain.FailureResponse(
+				false,
+				domain.ErrUnsupportedProvider,
+				"unsupported",
+				"",
+				nil,
+			),
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   domain.ErrUnsupportedProvider,
+			expectCalled:   true,
+		},
+		{
+			name: "service invalid destination maps bad request",
+			body: mustJSON(t, validRequest),
+			serviceResp: domain.FailureResponse(
+				false,
+				domain.ErrInvalidDestination,
+				"missing token",
+				"",
+				nil,
+			),
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   domain.ErrInvalidDestination,
+			expectCalled:   true,
+		},
+		{
+			name: "retryable failure maps service unavailable",
+			body: mustJSON(t, validRequest),
+			serviceResp: domain.FailureResponse(
+				true,
+				domain.ErrProviderRequest,
+				"timeout",
+				"",
+				nil,
+			),
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedCode:   domain.ErrProviderRequest,
+			expectCalled:   true,
+		},
+		{
+			name: "non retryable provider failure maps unprocessable",
+			body: mustJSON(t, validRequest),
+			serviceResp: domain.FailureResponse(
+				false,
+				domain.ErrSlackSendFailed,
+				"provider rejected",
+				"",
+				nil,
+			),
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedCode:   domain.ErrSlackSendFailed,
+			expectCalled:   true,
 		},
 	}
 
@@ -139,6 +209,22 @@ func TestHandleCreateDelivery(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestHandleCreateDeliveryMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	telegram := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
+	slack := &transportStub{response: domain.SuccessResponse("", "200", map[string]any{"ok": true})}
+	handler := NewDeliveriesHandler(service.NewDeliveryService(telegram, slack), logger.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/deliveries", nil)
+	rec := httptest.NewRecorder()
+	handler.HandleCreateDelivery(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 

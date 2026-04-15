@@ -14,15 +14,29 @@ import (
 )
 
 type TelegramAdapter struct {
-	httpClient *http.Client
+	httpClient HTTPClient
+	apiBaseURL string
 }
 
 var telegramTokenPattern = regexp.MustCompile(`https://api\.telegram\.org/bot[^/\s"]+`)
 
-func NewTelegramAdapter(httpClient *http.Client) *TelegramAdapter {
-	return &TelegramAdapter{httpClient: httpClient}
+// NewTelegramAdapter creates a Telegram transport adapter.
+func NewTelegramAdapter(httpClient HTTPClient, opts ...TelegramOption) *TelegramAdapter {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	adapter := &TelegramAdapter{httpClient: httpClient, apiBaseURL: defaultTelegramAPIBaseURL}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(adapter)
+		}
+	}
+
+	return adapter
 }
 
+// Deliver sends a formatted notification to the Telegram Bot API.
 func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryRequest) domain.DeliveryResponse {
 	token, _ := req.Destination["token"].(string)
 	chatRef, _ := req.Destination["chat_ref"].(string)
@@ -53,20 +67,20 @@ func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryReques
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return domain.FailureResponse(false, "encoding_error", err.Error(), "", nil)
+		return domain.FailureResponse(false, domain.ErrEncoding, err.Error(), "", nil)
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
+	url := fmt.Sprintf("%s/bot%s/sendMessage", strings.TrimRight(a.apiBaseURL, "/"), token)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return domain.FailureResponse(false, "request_build_failed", err.Error(), "", nil)
+		return domain.FailureResponse(false, domain.ErrRequestBuildFailed, err.Error(), "", nil)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return domain.FailureResponse(true, "provider_request_failed", sanitizeProviderError(err), "", nil)
+		return domain.FailureResponse(true, domain.ErrProviderRequest, sanitizeProviderError(err), "", nil)
 	}
 	defer resp.Body.Close()
 
@@ -79,7 +93,7 @@ func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryReques
 	}
 
 	retryable := resp.StatusCode == 429 || resp.StatusCode >= 500
-	return domain.FailureResponse(retryable, "telegram_send_failed", "telegram API returned non-success status", code, providerBody)
+	return domain.FailureResponse(retryable, domain.ErrTelegramSendFailed, "telegram API returned non-success status", code, providerBody)
 }
 
 func sanitizeProviderError(err error) string {
