@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/julianlinaress/service_hub_notifier/internal/domain"
@@ -15,6 +16,8 @@ import (
 type TelegramAdapter struct {
 	httpClient *http.Client
 }
+
+var telegramTokenPattern = regexp.MustCompile(`https://api\.telegram\.org/bot[^/\s"]+`)
 
 func NewTelegramAdapter(httpClient *http.Client) *TelegramAdapter {
 	return &TelegramAdapter{httpClient: httpClient}
@@ -63,7 +66,7 @@ func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryReques
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return domain.FailureResponse(true, "provider_request_failed", err.Error(), "", nil)
+		return domain.FailureResponse(true, "provider_request_failed", sanitizeProviderError(err), "", nil)
 	}
 	defer resp.Body.Close()
 
@@ -77,6 +80,12 @@ func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryReques
 
 	retryable := resp.StatusCode == 429 || resp.StatusCode >= 500
 	return domain.FailureResponse(retryable, "telegram_send_failed", "telegram API returned non-success status", code, providerBody)
+}
+
+func sanitizeProviderError(err error) string {
+	const replacement = "https://api.telegram.org/bot<redacted>"
+
+	return telegramTokenPattern.ReplaceAllString(err.Error(), replacement)
 }
 
 func formatTelegramMessage(req domain.DeliveryRequest) string {

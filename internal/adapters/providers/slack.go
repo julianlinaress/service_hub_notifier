@@ -79,12 +79,6 @@ func formatSlackMessage(req domain.DeliveryRequest) map[string]any {
 }
 
 func parseSlackBody(body io.Reader) map[string]any {
-	decoded := map[string]any{}
-
-	if err := json.NewDecoder(body).Decode(&decoded); err == nil {
-		return decoded
-	}
-
 	raw, err := io.ReadAll(body)
 	if err != nil {
 		return map[string]any{}
@@ -93,6 +87,11 @@ func parseSlackBody(body io.Reader) map[string]any {
 	text := strings.TrimSpace(string(raw))
 	if text == "" {
 		return map[string]any{}
+	}
+
+	decoded := map[string]any{}
+	if err := json.Unmarshal(raw, &decoded); err == nil {
+		return decoded
 	}
 
 	return map[string]any{"raw": text}
