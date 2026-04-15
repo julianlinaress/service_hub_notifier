@@ -30,11 +30,11 @@ func (a *TelegramAdapter) Deliver(ctx context.Context, req domain.DeliveryReques
 	threadID := req.Destination["thread_id"]
 
 	if strings.TrimSpace(token) == "" {
-		return domain.FailureResponse(false, "invalid_destination", "missing telegram token", "", nil)
+		return domain.FailureResponse(false, domain.ErrInvalidDestination, "missing telegram token", "", nil)
 	}
 
 	if strings.TrimSpace(chatRef) == "" {
-		return domain.FailureResponse(false, "invalid_destination", "missing telegram chat_ref", "", nil)
+		return domain.FailureResponse(false, domain.ErrInvalidDestination, "missing telegram chat_ref", "", nil)
 	}
 
 	if strings.TrimSpace(parseMode) == "" {

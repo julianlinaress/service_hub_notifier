@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -8,17 +9,20 @@ import (
 
 	"github.com/julianlinaress/service_hub_notifier/internal/adapters/logger"
 	"github.com/julianlinaress/service_hub_notifier/internal/domain"
-	"github.com/julianlinaress/service_hub_notifier/internal/service"
 )
 
 const maxDeliveryRequestBodyBytes = 1 << 20
 
 type DeliveriesHandler struct {
-	service *service.DeliveryService
+	service deliveryUseCase
 	logger  *logger.Logger
 }
 
-func NewDeliveriesHandler(service *service.DeliveryService, logger *logger.Logger) *DeliveriesHandler {
+type deliveryUseCase interface {
+	Deliver(ctx context.Context, req domain.DeliveryRequest) domain.DeliveryResponse
+}
+
+func NewDeliveriesHandler(service deliveryUseCase, logger *logger.Logger) *DeliveriesHandler {
 	return &DeliveriesHandler{service: service, logger: logger}
 }
 
@@ -39,18 +43,18 @@ func (h *DeliveriesHandler) HandleCreateDelivery(w http.ResponseWriter, r *http.
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			h.logger.Error("delivery_request_too_large", map[string]any{"error": err.Error()})
-			h.writeJSON(w, http.StatusRequestEntityTooLarge, domain.FailureResponse(false, "payload_too_large", "request body too large", "413", nil))
+			h.writeJSON(w, http.StatusRequestEntityTooLarge, domain.FailureResponse(false, domain.ErrPayloadTooLarge, "request body too large", "413", nil))
 			return
 		}
 
 		h.logger.Error("invalid_delivery_request", map[string]any{"error": err.Error()})
-		h.writeJSON(w, http.StatusBadRequest, domain.FailureResponse(false, "invalid_json", "invalid request body", "400", nil))
+		h.writeJSON(w, http.StatusBadRequest, domain.FailureResponse(false, domain.ErrInvalidJSON, "invalid request body", "400", nil))
 		return
 	}
 
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		h.logger.Error("invalid_delivery_request", map[string]any{"error": "request body must contain a single JSON object"})
-		h.writeJSON(w, http.StatusBadRequest, domain.FailureResponse(false, "invalid_json", "invalid request body", "400", nil))
+		h.writeJSON(w, http.StatusBadRequest, domain.FailureResponse(false, domain.ErrInvalidJSON, "invalid request body", "400", nil))
 		return
 	}
 
@@ -64,7 +68,7 @@ func (h *DeliveriesHandler) HandleCreateDelivery(w http.ResponseWriter, r *http.
 		"retryable":            response.Retryable,
 	}
 
-	if response.Status == "delivered" {
+	if response.Status == domain.StatusDelivered {
 		h.logger.Info("delivery_completed", logFields)
 		h.writeJSON(w, http.StatusOK, response)
 		return
@@ -72,12 +76,12 @@ func (h *DeliveriesHandler) HandleCreateDelivery(w http.ResponseWriter, r *http.
 
 	h.logger.Error("delivery_failed", logFields)
 
-	if response.ErrorCode == "invalid_request" || response.ErrorCode == "unsupported_provider" || response.ErrorCode == "invalid_destination" || response.ErrorCode == "invalid_json" {
+	if response.ErrorCode == domain.ErrInvalidRequest || response.ErrorCode == domain.ErrUnsupportedProvider || response.ErrorCode == domain.ErrInvalidDestination || response.ErrorCode == domain.ErrInvalidJSON {
 		h.writeJSON(w, http.StatusBadRequest, response)
 		return
 	}
 
-	if response.ErrorCode == "payload_too_large" {
+	if response.ErrorCode == domain.ErrPayloadTooLarge {
 		h.writeJSON(w, http.StatusRequestEntityTooLarge, response)
 		return
 	}

@@ -24,7 +24,7 @@ func (a *SlackAdapter) Deliver(ctx context.Context, req domain.DeliveryRequest) 
 	webhookURL, _ := req.Destination["webhook_url"].(string)
 
 	if strings.TrimSpace(webhookURL) == "" {
-		return domain.FailureResponse(false, "invalid_destination", "missing slack webhook_url", "", nil)
+		return domain.FailureResponse(false, domain.ErrInvalidDestination, "missing slack webhook_url", "", nil)
 	}
 
 	payload := formatSlackMessage(req)

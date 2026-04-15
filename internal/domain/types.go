@@ -40,7 +40,7 @@ func SuccessResponse(messageID string, responseCode string, providerResponse map
 	}
 
 	return DeliveryResponse{
-		Status:               "delivered",
+		Status:               StatusDelivered,
 		ProviderMessageID:    messageID,
 		ProviderResponseCode: responseCode,
 		ProviderResponse:     providerResponse,
@@ -53,7 +53,7 @@ func FailureResponse(retryable bool, errorCode string, errorMessage string, resp
 	}
 
 	return DeliveryResponse{
-		Status:               "failed",
+		Status:               StatusFailed,
 		Retryable:            retryable,
 		ErrorCode:            errorCode,
 		ErrorMessage:         errorMessage,
